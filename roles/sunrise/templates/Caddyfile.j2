@@ -16,30 +16,18 @@
 # start site blocks
 
 # test page
-www.sunrisemovement.dev {
-	root * /srv/sunrisemovement.dev/public/
-#	try_files {path}.html {path}
+test.sunrisepvd.com {
+	root * /srv/sunrisepvd.com/test/public/
 	import boilerplate
 }
 
-# redirect no-www to www
-sunrisemovement.dev {
-	redir https://www.sunrisemovement.dev
-}
-
-# handcoded Rhode Island site
-ri.sunrisemovement.dev {
-	root * /srv/sunrisemovement.dev/ri/public
+# handcoded Providence site
+www.sunrisepvd.com {
+	root * /srv/sunrisepvd.com/www/public
 	import boilerplate
 	php_fastcgi unix//var/run/php/php7.3-fpm.sock
 }
-
-# handcoded SF Bay website (originally Github Pages)
-sfbay.sunrisemovement.dev {
-	root * /srv/sunrisemovement.dev/sfbay/public
-	import boilerplate
-}
-sfbay.sunrisemovement.org {
-	root * /srv/sunrisemovement.org/sfbay/public
-	import boilerplate
+# redirect no-www to www
+sunrisepvd.com {
+	redir https://www.sunrisepvd.com
 }

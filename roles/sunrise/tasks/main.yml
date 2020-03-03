@@ -101,9 +101,10 @@
   include: new_handcoded.yml
   tags: new_handcoded
 
-- name: set up Hugo websites
-  include: hugo.yml
-  tags: hugo
+# Providence doesn't use Hugo right now
+# - name: set up Hugo websites
+#   include: hugo.yml
+#   tags: hugo
 
 # TODO: set up Longview - record and view stats, data to help diagnose problems
 

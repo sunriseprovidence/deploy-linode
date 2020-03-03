@@ -2,8 +2,8 @@
 - hosts: localhost
   connection: local
   vars:
-    linode_label: attenborough
-    linode_token: "{{ sunrise_linode_token }}"
+    linode_label: wiley
+    linode_token: "{{ pvd_linode_token }}"
 
   tasks:
   - name: pip install linode_api4

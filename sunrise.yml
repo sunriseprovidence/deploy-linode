@@ -1,6 +1,6 @@
 ---
 
-- hosts: sunrise
+- hosts: providence
   become: yes
   roles:
     - sunrise
