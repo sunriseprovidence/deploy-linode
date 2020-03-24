@@ -17,6 +17,9 @@
     # password: "{{ pass_attenborough }}"
 
   tasks:
+  - name: include variables
+    include_vars:
+      file: roles/sunrise/vars/linode.yml
 # TIP: If Ansible can't find pip, check your inventory for
 # ansible_python_interpreter and see if it's using the right location/version
 # https://stackoverflow.com/questions/57167948/module-failed-to-start-ansible
@@ -103,18 +106,6 @@
       state: present
     notify: restart ssh
 
-  # - name: Make sure we have a 'wheel' group
-  #   group:
-  #     name: wheel
-  #
-  # - name: Allow 'wheel' group to have passwordless sudo
-  #   lineinfile:
-  #     dest: /etc/sudoers
-  #     state: present
-  #     regexp: '^%wheel'
-  #     line: '%wheel ALL=(ALL) NOPASSWD: ALL'
-  #     validate: 'visudo -cf %s'
-
 # add user accounts
   - name: Add sudoing user accounts for all Sunrise sysadmins
     user:
@@ -154,10 +145,6 @@
 
 
   handlers:
-  # - name: force change password
-  #   command: "chage -d 0 {{ item.name }}"
-  #   when: item.changed
-  #   loop: "{{ new_accounts.results }}"
   - name: restart ssh
     service:
       name: ssh

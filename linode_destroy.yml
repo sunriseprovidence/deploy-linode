@@ -6,6 +6,9 @@
     linode_token: "{{ pvd_linode_token }}"
 
   tasks:
+  - name: include variables
+    include_vars:
+      file: roles/sunrise/vars/linode.yml
   - name: pip install linode_api4
     pip:
       name: linode_api4
