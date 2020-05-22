@@ -1,19 +1,51 @@
+- name: Include OS-specific variables
+  include_vars: "{{ ansible_distribution }}.yml"
+  tags: always
+
+- name: include local TLS file when testing
+  include_vars: local_tls.yml
+  when: local_tls
+  tags: always
+
+- name: update apt sources + upgrade packages
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+    upgrade: safe
+  tags: updategrade
+  when: ansible_os_family == 'Debian'
+
+- name: update sources + upgrade packages
+  pacman:
+    update_cache: yes
+    upgrade: yes
+  tags: updategrade
+  when: ansible_os_family == 'Archlinux'
+
+# TODO: Also update packages installed from other sources, such as pip
+# linode_create.yml installs linode-api4 from pip
+
+- name: install common packages, shared by all OSes
+  package:
+    name: '{{ item }}'
+  loop: "{{ common_packages }}"
+  tags: initial_packages
+- name: install packages specific to each OS
+  package:
+    name: '{{ item }}'
+  loop: "{{ os_packages }}"
+  tags: initial_packages
+  when: os_packages is defined
+
 - name: Add limited user accounts for all Sunrise sysadmins
   user:
     name: "{{ item.name }}"
     password: "{{ item.password }}"
     shell: "{{ item.shell }}"
-    groups: sudo
+    groups: "{{ sudoing_group }}"
     update_password: on_create
   loop: "{{ users }}"
   tags: user_password
-
-# - name: Add ssh keys for all Sunrise sysadmins
-#   authorized_key:
-#     user: "{{ item.name }}"
-#     key: "{{ item.sshKey }}"
-#   loop: "{{ users }}"
-#   tags: authorized_keys
 
 - name: Add ssh keys for all Sunrise sysadmins
   authorized_key:
@@ -29,17 +61,8 @@
   loop: "{{ users|subelements('sshKey') }}"
   tags: authorized_keys
 
-- name: update apt sources + upgrade packages
-  apt:
-    update_cache: yes
-    cache_valid_time: 3600
-    upgrade: safe
-  tags: updategrade
-
-# first, put local_hostname in /usr/local/etc/ansible/host_vars/[servername]
-- name: ensure hostname utility is installed
-  apt:
-    name: hostname
+# first, put local_hostname in ansible inventory
+# linode_create.yml does this automatically, but (for now) only for the person creating the server
 - name: set system's hostname
   hostname:
     name: "{{ local_hostname }}"
@@ -48,27 +71,21 @@
   debug:
     msg: Inventory item {{ inventory_hostname }} has hostname {{ ansible_hostname }}
     verbosity: 1
+  tags: hostname
 
 - name: print datetime before setting timezone
   debug:
     var: ansible_date_time
     verbosity: 1
+  tags: timezone
 # to get list of possible timezones, run "timedatectl list-timezones"
 - name: set timezone to NYC
   timezone:
     name: America/New_York
     # name: America/Los_Angeles
   tags: timezone
-  notify: "restart cron"
-
-- name: install unattended-upgrades
-  apt:
-    name: unattended-upgrades
-# TODO: set up unattended-upgrades
-# Should the server automatically reboot to install security updates?
-# Probably not for a production server, since the server could fail to come
-# back up when no human is paying attention to it. Better to manually reboot
-# so we know someone is watching to see if a reboot breaks anything.
+  notify:
+    - restart cron + print time
 
 - name: configure firewall using UFW
 # Maybe I should use iptables directly, but it's easier/simpler to set up UFW
@@ -79,22 +96,17 @@
 
 # TODO: fail2ban?
 
-- name: install mosh # better than SSH over crappy/mobile connections
-  apt:
-    name: mosh
-- name: allow mosh traffic through ufw
-  ufw:
-    rule: allow
-    port: 60000:61000
-    proto: udp
-  tags: mosh
-
 - name: customize the message of the day when logging in to the server
   import_tasks: motd.yml
   tags: motd
 
+- name: print OS info
+  debug:
+    msg: This server is running the {{ ansible_distribution }} distribution in the {{ ansible_os_family }} OS family.
+    verbosity: 1
+  tags: caddy_v2
 - name: setup Caddy V2 web server
-  import_tasks: caddy_v2.yml
+  import_tasks: caddy.yml
   tags: caddy_v2
 
 - name: set up some handcoded websites

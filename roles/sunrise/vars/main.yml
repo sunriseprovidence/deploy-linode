@@ -1,13 +1,38 @@
+common_packages:
+  - mosh # better than SSH over crappy/mobile connections
+  - git # check out git repositories
+  - php
+  - php-fpm # serve PHP sites via FastCGI
+  - acl # allows becoming unprivileged user (for git clone)
+
 default_pass: "$6$mysecretsalt$KX2mLFmN1x9gF/urPk7EpzaMJMcY4yoFetMlQw0W9Lm2MJZ8cVI/7dk25PVyb6cLx7IUwTxON5HucMHOdsP.Y0"
 admin_email: skyfaller@gmail.com
 
 users:
+  - name: wilsonbr
+    password: "{{ default_pass }}"
+    shell: /bin/bash
+    sshKey:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKKXBle8S/TLNfjlWAOCJ5UlWzVeVr77V5ZsksVJI6wB wilsonbr@Cthulhu
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMSoD1EE/VdDb9mBYDsebsIVowqhfvNWYhe2YBcfNeTo wilsonbr@cthulu2
   - name: nelson
     password: "{{ default_pass }}"
     shell: /bin/bash
-    sshKey: 
-      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDDMjjO5XKL+RqMIInA85ZVycw7D1OApFlUNCEQgTejQKqIWXHeXgweI+u/OcRlHIeBGmPCAKGmSnPrhDKSsjhYMWYrL1lLb1n3lVASsr4Ermp9FUoxys1QlKuKhuoggnXVRZMB2lzOD/LZkQ/iAhBhtLHnqLnVFE0XZ6tksR2rMO+FI3VpcqR/zXDoZQmWIX7wGm1JcQWPdJgtP1TYkBNRusPbFJdwH/xTM0BwGLVY0M9o9OCmkKZryNmcJl8ymv6DtCY122h8U8+QmR9bDFdWjwEc0mLHSnjhYMJdKBgbqwrVU24Dri9RMrqHEQTRk3FTgF6/WhkvsHHZuI8XUBwH nelson@Valence.local # noqa 204 - turn off Ansible linter
+    sshKey:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJcoG9tZKULXW2IQ+5MsZ3vgUBJ5C3uDbbG381S1Cjdl nelson@Valence.local
       - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHhOEJBnYlsQ/+6T3L0GxagZdCCCgqOaGFtgh5agZB4P u0_a278@localhost
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGnUmCzUu/jrZz+T5rVTEJQ73zobj+CixKJS2N9jMkhz nelson@annalise
+sudoing_group: wheel
+
+# vars for caddy_v2.yml
+caddy_storage_dir: '{{ webserver_user_registered.home }}/.local/share/caddy'
+caddy_conf_autosave_dir: '{{ webserver_user_registered.home }}/.config/caddy'
+# caddy_binary_url: https://github.com/caddyserver/caddy/releases/download/v2.0.0-beta.20/caddy2_beta20_linux_amd64
+test_domain: sunrisepvd.com
+test_subdomain: test
+building_caddy: false
+# caddy_git_version: v2
+caddyfile_name: Caddyfile.j2
 
 handcoded_websites:
   - subdomain: www

@@ -2,28 +2,33 @@
   service:
     name: cron
     state: restarted
-  listen: "restart cron"
-# - name: wait 5 secs for cron to restart
-#   wait_for:
-#     timeout: 5
-#   listen: "restart cron"
+  listen: restart cron + print time
+  when: ansible_os_family == 'Debian'
 - name: update facts so we can see if the timezone is correct now
   setup:
-  listen: "restart cron"
+  listen: restart cron + print time
 - name: print datetime after setting timezone
   debug:
     var: ansible_date_time
-  listen: "restart cron"
+  listen: restart cron + print time
 
-# - name: just force systemd to reread configs (2.4 and above)
-#   systemd:
-#     daemon_reload: yes
-#   listen: "reload caddy"
+# seems to act like a reload of the text?
+- name: update motd-news service
+  service:
+    name: motd-news
+    state: started
+    enabled: yes
+
+- name: daemon-reload service caddy
+  systemd:
+    name: caddy
+    daemon_reload: yes
+
 - name: reload caddy
   service:
     name: caddy
     state: reloaded
-  # listen: "reload caddy"
+
 - name: restart caddy
   service:
     name: caddy
@@ -36,16 +41,24 @@
     state: present
   listen: restart caddy
 
-- name: make www-data owner #of everything in the darn directory
-  file:
-    path: /srv/{{ item.domain_name }}/{{ item.subdomain }}
-    owner: www-data
-    group: www-data
-    recurse: yes
-  loop: "{{ handcoded_websites }}"
-
-- name: regenerate hugo
+# TODO: this handler runs twice if both theme and config changed
+# should only run once
+# https://github.com/sunrisemovement/devops/issues/11
+- name: run Hugo if theme changed
   command: hugo
+  become: yes
+  become_user: '{{ web_server_user }}'
   args:
-    chdir: /srv/{{ domain_name }}
-    creates: /srv/{{ domain_name }}/public
+    chdir: /srv/{{ item.item.domain }}/{{ item.item.subdomain }}
+  loop: '{{ theme_changes.results }}'
+  when: item.changed
+  # listen: re-generate Hugo site
+- name: run Hugo if config changed
+  command: hugo
+  become: yes
+  become_user: '{{ web_server_user }}'
+  args:
+    chdir: /srv/{{ item.item.domain }}/{{ item.item.subdomain }}
+  loop: '{{ config_changes.results }}'
+  when: item.changed
+  # listen: re-generate Hugo site

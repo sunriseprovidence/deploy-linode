@@ -2,24 +2,31 @@
 # tasks to create Linode from local machine using web api #
 - hosts: localhost
   connection: local
-  # API documentation: https://developers.linode.com/api/v4/
-  vars:
-    linode_label: wiley
-    linode_type: g6-nanode-1 # https://api.linode.com/v4/linode/types
-    linode_region: us-east # https://api.linode.com/v4/regions
-    linode_image: linode/ubuntu19.10 # https://api.linode.com/v4/images
-    # create Personal Access Token by clicking your profile in the upper right
-    # My Profile -> API Tokens -> [+] Add a Personal Access Token
-    # Give read/write access to at least Linodes, if not everything else
-    # Put PAT in ansible hosts file e.g. /usr/local/etc/ansible/hosts
-    # under [local:vars] after defining [local] as localhost
-    linode_token: "{{ pvd_linode_token }}"
-    # password: "{{ pass_attenborough }}"
 
   tasks:
   - name: include variables
     include_vars:
       file: roles/sunrise/vars/linode.yml
+
+# put local_hostname in /usr/local/etc/ansible/host_vars/[servername]
+  - name: create host_vars directory for this hostname
+    file:
+      path: '{{ inventory_directory }}/host_vars/{{ linode_label }}'
+      state: directory
+      mode: 0755
+  - name: create vars file for this server
+    file:
+      path: '{{ inventory_directory }}/host_vars/{{ linode_label }}/vars.yml'
+      state: touch
+      mode: 0644
+      modification_time: preserve
+      access_time: preserve
+  - name: store hostname in relevant host_vars vars file
+    lineinfile:
+      path: '{{ inventory_directory }}/host_vars/{{ linode_label }}/vars.yml'
+      regexp: '^local_hostname:'
+      line: 'local_hostname: {{ linode_label }}'
+
 # TIP: If Ansible can't find pip, check your inventory for
 # ansible_python_interpreter and see if it's using the right location/version
 # https://stackoverflow.com/questions/57167948/module-failed-to-start-ansible
@@ -36,7 +43,6 @@
       region: "{{ linode_region }}"
       image: "{{ linode_image }}"
       access_token: "{{ linode_token }}"
-      root_pass: "{{ password }}"
       authorized_keys:
         - "{{ ssh_pub_key }}"
       state: present
@@ -58,6 +64,11 @@
     debug:
       var: created_linode.instance.root_pass
       verbosity: 2
+# TODO: create Github issues and include those in the code comments
+# https://github.com/sunrisemovement/devops/issues/2
+# TODO: rewrite using SSH aliases
+# https://collectiveidea.com/blog/archives/2011/02/04/how-to-ssh-aliases
+# https://github.com/sunrisemovement/devops/issues/4
   - name: Remove lines with unwanted occurrences of hostname
     lineinfile:
       dest: /etc/hosts
@@ -77,10 +88,12 @@
       state: present
     become: true
 # TODO: Clear known_hosts - OK this has been done in linode_destroy
+# https://github.com/sunrisemovement/devops/issues/5
 
 
 # tasks on remote server once it has been created, as root #
 # TODO: DISABLE RUNNING THESE TASKS IF SERVER ALREADY EXISTED (how tho?)
+# https://github.com/sunrisemovement/devops/issues/9
 - hosts: providence
   gather_facts: no
   vars:
@@ -90,7 +103,7 @@
   - name: Don't do anything until server is reachable via SSH
     wait_for_connection:
       delay: 10
-      timeout: 60
+      timeout: 90
   - name: Gather facts for first time
     setup:
 
@@ -106,13 +119,23 @@
       state: present
     notify: restart ssh
 
-# add user accounts
+  # - name: Make sure we have a 'wheel' group
+  #   group:
+  #     name: wheel
+  # - name: Allow 'wheel' group to execute any command
+  #   lineinfile:
+  #     dest: /etc/sudoers
+  #     state: present
+  #     regexp: '^%wheel'
+  #     line: '%wheel ALL=(ALL) ALL'
+  #     validate: 'visudo -cf %s'
+
   - name: Add sudoing user accounts for all Sunrise sysadmins
     user:
       name: "{{ item.name }}"
       password: "{{ item.password }}"
       shell: "{{ item.shell }}"
-      groups: sudo
+      groups: wheel
       append: yes
       update_password: on_create
     loop: "{{ users }}"
@@ -143,24 +166,19 @@
     loop: "{{ users|subelements('sshKey') }}"
     tags: authorized_keys
 
-
   handlers:
   - name: restart ssh
     service:
-      name: ssh
+      name: sshd
       state: restarted
+
 
 # tasks on remote server once it has been created, as your own user #
 - hosts: providence
   become: yes
-  vars: # TODO: hide password somehow, this is stupid
+  vars: # TODO: hide password somehow, this is stupid - https://github.com/sunrisemovement/devops/issues/6
     ansible_become_pass: "correct zebra battery staple"
   tasks:
-  - name: install aptitude
-    apt:
-      name: aptitude
-      update_cache: yes
-      cache_valid_time: 3600
   - name: Disallow root SSH access
     lineinfile:
       dest: /etc/ssh/sshd_config
@@ -169,20 +187,28 @@
       state: present
     notify:
     - restart ssh
-    # change passwords last, you can't do anything else afterwards!
+# change passwords last, you can't do anything else afterwards!
     - force change password
+# note that handlers are executed in the order they are written down, NOT in the order they are notified
+# https://stackoverflow.com/questions/35130051/order-of-notify-handlers
+# TODO: make sure handlers execute in the correct order, by e.g. calling the 2nd handler from the first handler
+# don't rely on the order in which handlers are written down, which seems fragile
+# https://github.com/sunrisemovement/devops/issues/7
 
   handlers:
   - name: restart ssh
     service:
-      name: ssh
+      name: sshd
       state: restarted
 
 # IMPORTANT TODO:
-# This currently requires the user's entry to be last in user_vars.yml!
-# Otherwise it can't finish b/c the user hasn't updated their password
+# This handler currently requires the user's entry to be last in the list of users!
+# Otherwise it can't finish b/c the user hasn't updated their password yet
 # There must be some better way to do this that is less Nelson-specific
+# https://github.com/sunrisemovement/devops/issues/8
   - name: force change password
     command: "chage -d 0 {{ item.name }}"
     when: item.changed
     loop: "{{ new_accounts.results }}"
+# I might have lifted this code from this relevant GitHub issue:
+# https://github.com/ansible/ansible/issues/18917#issuecomment-520254763

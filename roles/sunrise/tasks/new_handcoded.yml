@@ -1,17 +1,10 @@
 ---
 # TIP: add the subdomain's A + AAAA records to the Linode control panel first!
 # Otherwise Let's Encrypt can't verify your certificates
-- name: install packages
-  apt:
-    name: '{{ item }}'
-  loop:
-    - git
-    - php-fpm
-    - acl # allows becoming unprivileged user (for git clone)
 
 - name: install Caddyfile from template
   template:
-    src: Caddyfile.j2
+    src: '{{ caddyfile_name }}'
     dest: /etc/caddy/Caddyfile
     owner: root
     group: root
@@ -24,18 +17,25 @@
     path: /srv/{{ item.domain_name }}/{{ item.subdomain }}
     state: directory
     mode: 0755
-    owner: www-data
-    group: www-data
-  loop: "{{ handcoded_websites }}"
+    owner: '{{ web_server_user }}'
+    group: '{{ web_server_user }}'
+  loop: '{{ handcoded_websites }}'
 
 - name: clone git repository for subdomain
   git:
-    repo: "{{ item.git_repo }}"
+    repo: '{{ item.git_repo }}'
     dest: /srv/{{ item.domain_name }}/{{ item.subdomain }}/public/
-  loop: "{{ handcoded_websites }}"
+# Let's include parameters for sites that have them, and ignore them for sites that don't
+# https://docs.ansible.com/ansible/latest/user_guide/playbooks_filters.html#defaulting-undefined-variables
+    version: '{{ item.version | default(omit) }}'
+    depth: '{{ item.depth | default(omit) }}'
+  loop: '{{ handcoded_websites }}'
   become: yes
-  become_user: www-data
-  tags: hand_git  
-  # notify:
-  #   - make www-data owner
-  #   - reload caddy
+  become_user: '{{ web_server_user }}'
+  tags: hand_git
+
+- name: start and enable php-fpm service
+  service:
+    name: '{{ php_fpm_service_name }}'
+    state: started
+    enabled: yes
